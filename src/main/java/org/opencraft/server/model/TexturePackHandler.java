@@ -12,10 +12,23 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
+/**
+ * Handles building the final texture pack that gets sent to clients.
+ *
+ * What this does in "simple" terms:
+ *  - Takes the base terrain.png from a texture pack .zip
+ *  - Draws the CTF blocks over it (vines, crates, purple wool etc.)
+ *  - Injects clan-specific textures (mine/flag/TNT) over those CTF blocks
+ *  - Repackages everything back into a .zip for the client to use
+ *
+ * Think of it as: "runtime texture pack patcher".
+ */
 public class TexturePackHandler {
 
   public static final int CTF_BLOCK_SIZE_PX = 16;
@@ -27,39 +40,182 @@ public class TexturePackHandler {
     return texturePackFile.exists();
   }
 
-  protected static BufferedImage mergeTerrain(Image ctfTerrain, Image source) {
-    /*
-     * So...
-     * first find size of texture file. Standard seems to be 16 tiles across.
-     *    pixels per block = width in pixels / 16
-     * Calculate ctf blocks height. We'll just say the default ctf texture has to be
-     * 16 blocks by default. so the ctf blocks height is going to be
-     *    number of rows = height in pixels / 16
-     * Scale and place in bottom left.
-     *    scale factor = pixels per block / 16
-     * Bottom left is going to be 512 - 16 * number of rows
-     */
+  /**
+   * This maps a clan color name -> where that color lives inside
+   * clan_blocks.png.
+   *
+   * Each color is a strip of 5 textures formatted next to each other:
+   *   mine, flag, side TNT, top TNT, bottom TNT (in that order)
+   *
+   * Each tile is 16x16, so we can just increment x by 16 to get the index within that strip.
+   */
+  private static final Map<String, Point> CLAN_COLOR_POSITIONS = new HashMap<>();
+
+  static {
+    CLAN_COLOR_POSITIONS.put("MAROON", new Point(0, 0));
+    CLAN_COLOR_POSITIONS.put("RED", new Point(80, 0));
+    CLAN_COLOR_POSITIONS.put("ORANGE", new Point(160, 0));
+    CLAN_COLOR_POSITIONS.put("GOLD", new Point(240, 0));
+
+    CLAN_COLOR_POSITIONS.put("YELLOW", new Point(0, 16));
+    CLAN_COLOR_POSITIONS.put("LIME", new Point(80, 16));
+    CLAN_COLOR_POSITIONS.put("GREEN", new Point(160, 16));
+    CLAN_COLOR_POSITIONS.put("TURQUOISE", new Point(240, 16));
+
+    CLAN_COLOR_POSITIONS.put("CYAN", new Point(0, 32));
+    CLAN_COLOR_POSITIONS.put("BLUE", new Point(80, 32));
+    CLAN_COLOR_POSITIONS.put("NAVY", new Point(160, 32));
+    CLAN_COLOR_POSITIONS.put("PURPLE", new Point(240, 32));
+
+    CLAN_COLOR_POSITIONS.put("PINK", new Point(0, 48));
+    CLAN_COLOR_POSITIONS.put("WHITE", new Point(80, 48));
+    CLAN_COLOR_POSITIONS.put("SILVER", new Point(160, 48));
+    CLAN_COLOR_POSITIONS.put("GRAY", new Point(240, 48));
+
+    CLAN_COLOR_POSITIONS.put("BLACK", new Point(0, 64));
+  }
+
+  /**
+   * Grabs a single 16x16 tile out of the clan sprite sheet and draws it
+   * onto the final texture pack.
+   *
+   * Everything is scaled so it should work for 16x / 32x / 64x packs etc.
+   */
+  private static void drawClanTexture(
+      Graphics2D graphics,
+      BufferedImage clanBlocks,
+      int scaleFactor,
+      int sourceX,
+      int sourceY,
+      int destX,
+      int destY
+  ) {
+    BufferedImage tile = clanBlocks.getSubimage(
+        sourceX,
+        sourceY,
+        16,
+        16
+    );
+
+    graphics.drawImage(
+        tile,
+        destX * scaleFactor,
+        destY * scaleFactor,
+        16 * scaleFactor,
+        16 * scaleFactor,
+        null
+    );
+  }
+
+  private static void drawTeamTextures(
+      Graphics2D graphics,
+      BufferedImage clanBlocks,
+      int scaleFactor,
+      String color,
+      boolean team1
+  ) {
+    Point colourPos = CLAN_COLOR_POSITIONS.get(color.toUpperCase());
+
+    if (colourPos == null) {
+      throw new IllegalArgumentException("Unknown clan colour: " + color);
+    }
+
+    int sourceX = colourPos.x;
+    int sourceY = colourPos.y;
+
+    int mineDestX       = team1 ? 0   : 16;
+    int flagDestX       = team1 ? 48  : 64;
+    int sideTntDestX    = team1 ? 96  : 176;
+    int topTntDestX     = team1 ? 112 : 192;
+    int bottomTntDestX  = team1 ? 128 : 208;
+
+    int destY = 496;
+
+    drawClanTexture(graphics, clanBlocks, scaleFactor,
+        sourceX + 0 * 16, sourceY,
+        mineDestX, destY);
+
+    drawClanTexture(graphics, clanBlocks, scaleFactor,
+        sourceX + 1 * 16, sourceY,
+        flagDestX, destY);
+
+    drawClanTexture(graphics, clanBlocks, scaleFactor,
+        sourceX + 2 * 16, sourceY,
+        sideTntDestX, destY);
+
+    drawClanTexture(graphics, clanBlocks, scaleFactor,
+        sourceX + 3 * 16, sourceY,
+        topTntDestX, destY);
+
+    drawClanTexture(graphics, clanBlocks, scaleFactor,
+        sourceX + 4 * 16, sourceY,
+        bottomTntDestX, destY);
+  }
+
+  protected static BufferedImage mergeTerrain(
+      Image ctfTerrain,
+      Image source
+  ) throws IOException {
+    String team1Colour = "orange";
+    String team2Colour = "pink";
+
     int pxPerBlock = source.getWidth(null) / TEXTURE_WIDTH_BLOCKS;
+    int ctfRows = ctfTerrain.getHeight(null) / CTF_BLOCK_SIZE_PX; // Row count in terrain.png
 
-    // Get number of rows we are going to take up.
-    int ctfRows = ctfTerrain.getHeight(null) / CTF_BLOCK_SIZE_PX;
-    // Scale CTF image if needed.
+    // Some texture packs are HD so we need to scale our overlayed blocks and also offset their paste locations
     int scaleFactor = pxPerBlock / CTF_BLOCK_SIZE_PX;
-    ctfTerrain = ctfTerrain.getScaledInstance(ctfTerrain.getWidth(null) * scaleFactor,
-        ctfTerrain.getHeight(null) * scaleFactor, Image.SCALE_DEFAULT);
 
-    // Make it a 16x32 texture by default I guess?
-    BufferedImage target = new BufferedImage(pxPerBlock * TEXTURE_WIDTH_BLOCKS,
-        pxPerBlock * TEXTURE_HEIGHT_BLOCKS, BufferedImage.TYPE_INT_ARGB);
+    // Scale CTF terrain to match the texture pack resolution
+    ctfTerrain = ctfTerrain.getScaledInstance(
+        ctfTerrain.getWidth(null) * scaleFactor,
+        ctfTerrain.getHeight(null) * scaleFactor,
+        Image.SCALE_DEFAULT
+    );
+
+    // Create output image
+    BufferedImage target = new BufferedImage(
+        pxPerBlock * TEXTURE_WIDTH_BLOCKS,
+        pxPerBlock * TEXTURE_HEIGHT_BLOCKS,
+        BufferedImage.TYPE_INT_ARGB
+    );
 
     Graphics2D graphics = target.createGraphics();
-    // Draw original image on first.
-    graphics.drawImage(source, 0, 0, null);
 
-    graphics.setComposite(AlphaComposite.Src);
+    try {
+      graphics.drawImage(source, 0, 0, null); // Original terrain.png
+      graphics.setComposite(AlphaComposite.Src); // CTF blocks
 
-    // Draw the scaled CTF Texture onto it.
-    graphics.drawImage(ctfTerrain, 0, (TEXTURE_HEIGHT_BLOCKS - ctfRows) * pxPerBlock, null);
+      graphics.drawImage(
+          ctfTerrain,
+          0,
+          (TEXTURE_HEIGHT_BLOCKS - ctfRows) * pxPerBlock,
+          null
+      );
+
+      BufferedImage clanBlocks =
+          ImageIO.read(new File("texturepack_patch/clan_blocks.png"));
+
+      // Team 1 textures
+      drawTeamTextures(
+          graphics,
+          clanBlocks,
+          scaleFactor,
+          team1Colour,
+          true
+      );
+
+      // Team 2 textures
+      drawTeamTextures(
+          graphics,
+          clanBlocks,
+          scaleFactor,
+          team2Colour,
+          false
+      );
+
+    } finally {
+      graphics.dispose();
+    }
 
     return target;
   }
