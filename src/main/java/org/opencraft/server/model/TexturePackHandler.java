@@ -5,6 +5,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import javax.imageio.ImageIO;
 import org.opencraft.server.Server;
+import org.opencraft.server.game.impl.GameSettings;
 
 import java.io.DataInputStream;
 import java.io.File;
@@ -114,14 +115,14 @@ public class TexturePackHandler {
       String color,
       boolean team1
   ) {
-    Point colourPos = CLAN_COLOR_POSITIONS.get(color.toUpperCase());
+    Point colorPos = CLAN_COLOR_POSITIONS.get(color.toUpperCase());
 
-    if (colourPos == null) {
-      throw new IllegalArgumentException("Unknown clan colour: " + color);
+    if (colorPos == null) {
+      throw new IllegalArgumentException("Unknown clan color: " + color);
     }
 
-    int sourceX = colourPos.x;
-    int sourceY = colourPos.y;
+    int sourceX = colorPos.x;
+    int sourceY = colorPos.y;
 
     int mineDestX       = team1 ? 0   : 16;
     int flagDestX       = team1 ? 48  : 64;
@@ -156,8 +157,8 @@ public class TexturePackHandler {
       Image ctfTerrain,
       Image source
   ) throws IOException {
-    String team1Colour = "orange";
-    String team2Colour = "pink";
+    String team1Color = GameSettings.getString("Team1Color");
+    String team2Color = GameSettings.getString("Team2Color");
 
     int pxPerBlock = source.getWidth(null) / TEXTURE_WIDTH_BLOCKS;
     int ctfRows = ctfTerrain.getHeight(null) / CTF_BLOCK_SIZE_PX; // Row count in terrain.png
@@ -200,7 +201,7 @@ public class TexturePackHandler {
           graphics,
           clanBlocks,
           scaleFactor,
-          team1Colour,
+          team1Color,
           true
       );
 
@@ -209,7 +210,7 @@ public class TexturePackHandler {
           graphics,
           clanBlocks,
           scaleFactor,
-          team2Colour,
+          team2Color,
           false
       );
 
@@ -228,6 +229,8 @@ public class TexturePackHandler {
         return;
       }
 
+      System.out.println("Creating patched textures for " + map);
+
       ZipFile in = new ZipFile(texturePackFile);
       ZipOutputStream out = new ZipOutputStream(new FileOutputStream(outputFile));
 
@@ -240,30 +243,42 @@ public class TexturePackHandler {
       Image ctfTerrain = ImageIO.read(new File("texturepack_patch/ctf_terrain.png"));
 
       Enumeration<? extends ZipEntry> entries = in.entries();
+
       while (entries.hasMoreElements()) {
         ZipEntry entry = entries.nextElement();
-        switch (entry.getName()) {
+        String name = entry.getName();
+        switch (name) {
           case "default.png":
             // use font file above
             break;
           case "particles.png":
             // use particles file above
             break;
-          case "terrain.png":
-            out.putNextEntry(new ZipEntry(entry.getName()));
-            DataInputStream terrainData = new DataInputStream(in.getInputStream(entry));
-            Image source = ImageIO.read(terrainData);
-            BufferedImage imageData = mergeTerrain(ctfTerrain, source);
-            ByteArrayOutputStream imgOutput = new ByteArrayOutputStream();
-            ImageIO.write(imageData, "png", imgOutput);
-            out.write(imgOutput.toByteArray());
-            terrainData.close();
-            break;
           default:
-            out.putNextEntry(new ZipEntry(entry.getName()));
-            DataInputStream dataIn = new DataInputStream(in.getInputStream(entry));
+            if (name.equals("terrain.png") || name.endsWith("/terrain.png")) {
+              out.putNextEntry(new ZipEntry("terrain.png"));
+              DataInputStream terrainData = new DataInputStream(in.getInputStream(entry));
+
+              Image source = ImageIO.read(terrainData);
+              BufferedImage imageData = mergeTerrain(ctfTerrain, source);
+
+              ByteArrayOutputStream imgOutput = new ByteArrayOutputStream();
+              ImageIO.write(imageData, "png", imgOutput);
+              out.write(imgOutput.toByteArray());
+
+              terrainData.close();
+              break;
+            }
+
+            // Everything else gets copied raw
+            out.putNextEntry(new ZipEntry(name));
+
+            DataInputStream dataIn =
+                new DataInputStream(in.getInputStream(entry));
+
             byte[] bytes = new byte[(int) entry.getSize()];
             dataIn.readFully(bytes);
+
             out.write(bytes);
             dataIn.close();
             break;
