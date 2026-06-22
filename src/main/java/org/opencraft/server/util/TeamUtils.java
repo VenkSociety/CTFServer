@@ -54,7 +54,7 @@ public class TeamUtils {
       case "cyan" -> "&b";
       case "red" -> "&c";
       case "pink" -> "&d";
-      case "yellow" -> "&e";
+      case "yellow" -> "&k";
       case "blue" -> "&9";
       case "purple" -> "&g";
       case "orange" -> "&i";

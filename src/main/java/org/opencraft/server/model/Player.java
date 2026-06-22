@@ -1067,7 +1067,7 @@ public class Player extends Entity implements IPlayer {
   }
 
   public String getListName() {
-    String playerHasFlag = hasFlag ? "&6[!] " : "";
+    String playerHasFlag = hasFlag ? "&l[!] " : "";
 
     List<String> characteristics = new ArrayList<>();
     if (AFK) characteristics.add("AFK");

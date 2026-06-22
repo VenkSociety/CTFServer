@@ -29,8 +29,8 @@ public class CTFPlayerUI extends PlayerUI {
       return "";
     }
 
-    String team1Flag = ctf.redFlagTaken ? " &6[!]" : "";
-    String team2Flag = ctf.blueFlagTaken ? " &6[!]" : "";
+    String team1Flag = ctf.redFlagTaken ? " &l[!]" : "";
+    String team2Flag = ctf.blueFlagTaken ? " &l[!]" : "";
 
     return "Map: "
         + ctf.map.id
@@ -96,8 +96,8 @@ public class CTFPlayerUI extends PlayerUI {
 
     // If streamer mode is enabled, minimize the HUD
     if (player.streamerMode) {
-      String redFlag = ctf.redFlagTaken ? " &6[!]" : "";
-      String blueFlag = ctf.blueFlagTaken ? " &6[!]" : "";
+      String redFlag = ctf.redFlagTaken ? " &l[!]" : "";
+      String blueFlag = ctf.blueFlagTaken ? " &l[!]" : "";
       return TeamUtils.getTeamColor(0) + ctf.redCaptures + redFlag + " " + TeamUtils.getTeamColor(1) + ctf.blueCaptures + blueFlag + " &f" + prettyTime((int) remaining);
     }
 

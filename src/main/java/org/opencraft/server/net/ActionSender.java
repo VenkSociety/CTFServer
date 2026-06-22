@@ -810,6 +810,26 @@ public class ActionSender {
     }
   }
 
+  public void sendTextColor(
+      int r,
+      int g,
+      int b,
+      int alpha,
+      int code
+) {
+    if (!session.isExtensionSupported("TextColors")) {
+      return;
+    }
+    PacketBuilder bldr =
+        new PacketBuilder(PersistingPacketManager.getPacketManager().getOutgoingPacket(39));
+    bldr.putByte("r", r);
+    bldr.putByte("g", g);
+    bldr.putByte("b", b);
+    bldr.putByte("alpha", alpha);
+    bldr.putByte("code", code);
+    session.send(bldr.toPacket());
+  }
+
   public void sendDefineEffect(
       int id,
       int u1,
