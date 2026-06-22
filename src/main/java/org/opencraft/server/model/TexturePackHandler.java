@@ -20,15 +20,14 @@ import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 /**
- * Handles building the final texture pack that gets sent to clients.
- *
  * What this does in "simple" terms:
  *  - Takes the base terrain.png from a texture pack .zip
- *  - Draws the CTF blocks over it (vines, crates, purple wool etc.)
- *  - Injects clan-specific textures (mine/flag/TNT) over those CTF blocks
+ *  - Replaces red/blue wool with whatever team1/team2's wool should be
+ *  - Draws the CTF blocks over the terrain (vines, crates, purple wool etc.)
+ *  - Injects clan-specific textures (mine/flag/TNT etc.) over those CTF blocks
  *  - Repackages everything back into a .zip for the client to use
  *
- * Think of it as: "runtime texture pack patcher".
+ * Think of it as: "runtime texture pack patcher", if that makes it any easier to understand.
  */
 public class TexturePackHandler {
 
@@ -76,11 +75,24 @@ public class TexturePackHandler {
     CLAN_COLOR_POSITIONS.put("BLACK", new Point(0, 64));
   }
 
+  private static final Map<String, Rectangle> WOOL_SOURCES = Map.of(
+      "RED", new Rectangle(0, 64, 16, 16),
+      "ORANGE", new Rectangle(16, 64, 16, 16),
+      "YELLOW", new Rectangle(32, 64, 16, 16),
+      "LIME", new Rectangle(64, 64, 16, 16),
+      "CYAN", new Rectangle(96, 64, 16, 16),
+      "BLUE", new Rectangle(112, 64, 16, 16),
+      "PURPLE", new Rectangle(160, 64, 16, 16),
+      "PINK", new Rectangle(192, 64, 16, 16)
+  );
+
+  private static final Rectangle TEAM1_WOOL_DST_BLOCK = new Rectangle(0, 4, 1, 1);
+  private static final Rectangle TEAM2_WOOL_DST_BLOCK = new Rectangle(7, 4, 1, 1);
   /**
    * Grabs a single 16x16 tile out of the clan sprite sheet and draws it
    * onto the final texture pack.
    *
-   * Everything is scaled so it should work for 16x / 32x / 64x packs etc.
+   * Everything is scaled so it /should/ work for 16x / 32x / 64x packs etc.
    */
   private static void drawClanTexture(
       Graphics2D graphics,
@@ -153,15 +165,49 @@ public class TexturePackHandler {
         bottomTntDestX, destY);
   }
 
+  private static BufferedImage toBuffered(Image img) {
+    if (img instanceof BufferedImage) {
+      return (BufferedImage) img;
+    }
+
+    BufferedImage b = new BufferedImage(
+        img.getWidth(null),
+        img.getHeight(null),
+        BufferedImage.TYPE_INT_ARGB
+    );
+
+    Graphics2D g = b.createGraphics();
+    g.drawImage(img, 0, 0, null);
+    g.dispose();
+
+    return b;
+  }
+
+  private static void copyRegion(
+      BufferedImage img,
+      Rectangle src,
+      Rectangle dst
+  ) {
+    BufferedImage tile = img.getSubimage(src.x, src.y, src.width, src.height);
+
+    Graphics2D g = img.createGraphics();
+    try {
+      g.drawImage(tile, dst.x, dst.y, null);
+    } finally {
+      g.dispose();
+    }
+  }
+
   protected static BufferedImage mergeTerrain(
       Image ctfTerrain,
       Image source
   ) throws IOException {
+
     String team1Color = GameSettings.getString("Team1Color");
     String team2Color = GameSettings.getString("Team2Color");
 
     int pxPerBlock = source.getWidth(null) / TEXTURE_WIDTH_BLOCKS;
-    int ctfRows = ctfTerrain.getHeight(null) / CTF_BLOCK_SIZE_PX; // Row count in terrain.png
+    int ctfRows = ctfTerrain.getHeight(null) / CTF_BLOCK_SIZE_PX;
 
     // Some texture packs are HD so we need to scale our overlayed blocks and also offset their paste locations
     int scaleFactor = pxPerBlock / CTF_BLOCK_SIZE_PX;
@@ -173,7 +219,7 @@ public class TexturePackHandler {
         Image.SCALE_DEFAULT
     );
 
-    // Create output image
+    // This is our beautiful mess of a final image :D
     BufferedImage target = new BufferedImage(
         pxPerBlock * TEXTURE_WIDTH_BLOCKS,
         pxPerBlock * TEXTURE_HEIGHT_BLOCKS,
@@ -183,9 +229,55 @@ public class TexturePackHandler {
     Graphics2D graphics = target.createGraphics();
 
     try {
-      graphics.drawImage(source, 0, 0, null); // Original terrain.png
-      graphics.setComposite(AlphaComposite.Src); // CTF blocks
+      BufferedImage terrain = toBuffered(source); // Need to make a buffer so we can edit the terrain.png
 
+      // To minimize confusion, let's replace red/blue wool with team1 and team2's corresponding wool color
+      // To do this, we can just copy the texture from terrain.png and overlay it directly above the red/blue wool textures
+      Rectangle src1 = WOOL_SOURCES.get(team1Color.toUpperCase());
+      Rectangle src2 = WOOL_SOURCES.get(team2Color.toUpperCase());
+
+      if (src1 == null || src2 == null) {
+        throw new IllegalArgumentException("Invalid team color");
+      }
+
+      // Scale the wool textures if the texture pack is HD
+      Rectangle scaledSrc1 = new Rectangle(
+          src1.x * scaleFactor,
+          src1.y * scaleFactor,
+          src1.width * scaleFactor,
+          src1.height * scaleFactor
+      );
+
+      Rectangle scaledSrc2 = new Rectangle(
+          src2.x * scaleFactor,
+          src2.y * scaleFactor,
+          src2.width * scaleFactor,
+          src2.height * scaleFactor
+      );
+
+      int blockSize = pxPerBlock;
+
+      Rectangle team1Dst = new Rectangle(
+          TEAM1_WOOL_DST_BLOCK.x * blockSize,
+          TEAM1_WOOL_DST_BLOCK.y * blockSize,
+          TEAM1_WOOL_DST_BLOCK.width * blockSize,
+          TEAM1_WOOL_DST_BLOCK.height * blockSize
+      );
+
+      Rectangle team2Dst = new Rectangle(
+          TEAM2_WOOL_DST_BLOCK.x * blockSize,
+          TEAM2_WOOL_DST_BLOCK.y * blockSize,
+          TEAM2_WOOL_DST_BLOCK.width * blockSize,
+          TEAM2_WOOL_DST_BLOCK.height * blockSize
+      );
+
+      copyRegion(terrain, scaledSrc1, team1Dst);
+      copyRegion(terrain, scaledSrc2, team2Dst);
+
+      graphics.drawImage(terrain, 0, 0, null); // Put the modified terrain
+      graphics.setComposite(AlphaComposite.Src);
+
+      // Add the CTF blocks on top
       graphics.drawImage(
           ctfTerrain,
           0,
@@ -193,6 +285,7 @@ public class TexturePackHandler {
           null
       );
 
+      // Add custom mine/flag/tnt textures on top
       BufferedImage clanBlocks =
           ImageIO.read(new File("texturepack_patch/clan_blocks.png"));
 
