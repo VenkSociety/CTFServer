@@ -56,6 +56,7 @@ import org.opencraft.server.persistence.SavedGameManager;
 import org.opencraft.server.replay.ReplayThread;
 import org.opencraft.server.task.Task;
 import org.opencraft.server.task.TaskQueue;
+import org.opencraft.server.util.TeamUtils;
 
 /**
  * A utility class for sending packets.
@@ -159,7 +160,7 @@ public class ActionSender {
             (byte) -1,
             session.getPlayer().nameId,
             session.getPlayer().getColoredName(),
-            session.getPlayer().getTeamName(),
+            TeamUtils.getTeamName(session.getPlayer().team),
             session.getPlayer().getName(),
             session.getPlayer().getListName(),
             session.getPlayer().getSkinUrl(),
@@ -234,7 +235,7 @@ public class ActionSender {
         (byte) player.getId(),
         (byte) player.nameId,
         player.getColoredName(),
-        player.getTeamName(),
+        TeamUtils.getTeamName(player.team),
         player.getName(),
         player.getListName(),
         player.getSkinUrl(),
@@ -299,7 +300,7 @@ public class ActionSender {
         (byte) player.getId(),
         player.nameId,
         player.getColoredName(),
-        player.getTeamName(),
+        TeamUtils.getTeamName(player.team),
         player.getName(),
         player.getListName(),
         player.getSkinUrl(),

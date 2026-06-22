@@ -7,6 +7,7 @@ import org.opencraft.server.model.PlayerUI;
 import org.opencraft.server.model.ProgressBar;
 import org.opencraft.server.model.ProgressBarType;
 import org.opencraft.server.model.World;
+import org.opencraft.server.util.TeamUtils;
 
 public class CTFPlayerUI extends PlayerUI {
   private final CTFGameMode ctf;
@@ -28,16 +29,17 @@ public class CTFPlayerUI extends PlayerUI {
       return "";
     }
 
-    String redFlag = ctf.redFlagTaken ? " &6[!]" : "";
-    String blueFlag = ctf.blueFlagTaken ? " &6[!]" : "";
+    String team1Flag = ctf.redFlagTaken ? " &6[!]" : "";
+    String team2Flag = ctf.blueFlagTaken ? " &6[!]" : "";
+
     return "Map: "
         + ctf.map.id
-        + " | &cRed: "
-        + ctf.redCaptures
-        + redFlag
-        + " &f| &9Blue: "
-        + ctf.blueCaptures
-        + blueFlag;
+        + " | "
+        + TeamUtils.getTeamName(0) + ": "
+        + ctf.getRedCaptures() + team1Flag
+        + " &f| "
+        + TeamUtils.getTeamName(1) + ": "
+        + ctf.getBlueCaptures() + team2Flag;
   }
 
   @Override
@@ -96,7 +98,7 @@ public class CTFPlayerUI extends PlayerUI {
     if (player.streamerMode) {
       String redFlag = ctf.redFlagTaken ? " &6[!]" : "";
       String blueFlag = ctf.blueFlagTaken ? " &6[!]" : "";
-      return "&c" + ctf.redCaptures + redFlag + " &9" + ctf.blueCaptures + blueFlag + " &f" + prettyTime((int) remaining);
+      return TeamUtils.getTeamColor(0) + ctf.redCaptures + redFlag + " " + TeamUtils.getTeamColor(1) + ctf.blueCaptures + blueFlag + " &f" + prettyTime((int) remaining);
     }
 
     return timerMessage + " | " + prettyTime((int) remaining);
