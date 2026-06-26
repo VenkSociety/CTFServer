@@ -88,6 +88,7 @@ public class TexturePackHandler {
 
   private static final Rectangle TEAM1_WOOL_DST_BLOCK = new Rectangle(0, 4, 1, 1);
   private static final Rectangle TEAM2_WOOL_DST_BLOCK = new Rectangle(7, 4, 1, 1);
+  private static final Rectangle TEAM2_ALT_WOOL_DST_BLOCK = new Rectangle(3, 5, 1, 1);
   /**
    * Grabs a single 16x16 tile out of the clan sprite sheet and draws it
    * onto the final texture pack.
@@ -271,8 +272,17 @@ public class TexturePackHandler {
           TEAM2_WOOL_DST_BLOCK.height * blockSize
       );
 
+      // Some newer maps use navy blue wool instead of blue wool, so let's also replace those
+      Rectangle team2Dst2 = new Rectangle(
+          TEAM2_ALT_WOOL_DST_BLOCK.x * blockSize,
+          TEAM2_ALT_WOOL_DST_BLOCK.y * blockSize,
+          TEAM2_ALT_WOOL_DST_BLOCK.width * blockSize,
+          TEAM2_ALT_WOOL_DST_BLOCK.height * blockSize
+      );
+
       copyRegion(terrain, scaledSrc1, team1Dst);
       copyRegion(terrain, scaledSrc2, team2Dst);
+      copyRegion(terrain, scaledSrc2, team2Dst2);
 
       graphics.drawImage(terrain, 0, 0, null); // Put the modified terrain
       graphics.setComposite(AlphaComposite.Src);
