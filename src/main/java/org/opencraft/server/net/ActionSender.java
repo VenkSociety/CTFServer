@@ -501,7 +501,7 @@ public class ActionSender {
   public void sendMapAspect() {
     Level level = World.getWorld().getLevel();
     String texturePack;
-    String server = Configuration.getConfiguration().isTest() ? "http://127.0.0.1:"+Constants.WEB_PORT : "https://buildism.net/ctf";
+    String server = Constants.WEB_SERVER;
     if (level.props.getProperty("texturepack") != null) {
       texturePack = server + "/texturepack.zip?map=" + level.props.getProperty("texturepack");
     } else if (TexturePackHandler.hasCustomTexturePack(level.id)) {

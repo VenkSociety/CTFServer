@@ -180,6 +180,7 @@ public final class Constants {
 
   public static final String ROOT_PATH = ".";
   public static int PORT = 25560;
+  public static String WEB_SERVER = "https://buildism.net/ctf";
   public static int WEB_PORT = 22000;
   public static String VERSION = "Capture the Flag";
   public static int SAFE_TIME = 3000;
