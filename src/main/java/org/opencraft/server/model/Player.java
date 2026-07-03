@@ -60,6 +60,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Set;
 import tf.jacobsc.utils.DuelKt;
 import tf.jacobsc.utils.RatingKt;
 import tf.jacobsc.utils.RatingSystem;
@@ -945,8 +946,84 @@ public class Player extends Entity implements IPlayer {
     }
   }
 
+  private static final Set<String> mysteryNames = Set.of(
+      "bmo",
+      "finn_the_human",
+      "ice_king",
+      "jake_the_dog",
+      "lemongrab",
+      "marceline",
+      "princess_bubblegum",
+      "peppermint_buttler",
+      "lady_rainicorn",
+
+      "patrick_star",
+      "plankton",
+      "sandy_cheeks",
+      "spongebob",
+      "squidward",
+      "mr.krabs",
+
+      "dr_nefario",
+      "gru",
+      "minion",
+      "vector",
+
+      "donkey",
+      "gingey",
+      "lord_farquad",
+      "princess_fiona",
+      "puss_in_boots",
+      "shrek",
+      "humpty_dumpty",
+
+      "donald_duck",
+      "goofy",
+      "mickey_mouse",
+      "pluto",
+      "minnie_mouse",
+
+      "daphne",
+      "fred",
+      "scooby_doo",
+      "shaggy",
+      "velma",
+      "scrappy",
+      "mystery_machine",
+
+      "donatello",
+      "leonardo",
+      "michelangelo",
+      "raphael",
+
+      "bowser",
+      "donkey_kong",
+      "luigi",
+      "mario",
+      "princess_peach",
+      "yoshi",
+      "toad",
+      "waluigi",
+      "wario",
+      "daisy",
+
+      "batman",
+      "hulk",
+      "ironman",
+      "spiderman",
+      "superman",
+      "wonder_woman",
+
+      "cowardly_lion",
+      "dorothy",
+      "scarecrow",
+      "tinman"
+  );
+
   public String getSkinUrl() {
-    return null;
+    String normalized = name.toLowerCase();
+    if (!mysteryNames.contains(normalized)) return null;
+    return "https://garbage.loan/f/Venk/" + normalized + ".png";
   }
 
   /**

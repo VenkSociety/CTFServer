@@ -48,9 +48,11 @@ import org.opencraft.server.net.MinecraftSession;
 import org.opencraft.server.persistence.LoadPersistenceRequest;
 import org.opencraft.server.persistence.SavePersistenceRequest;
 import org.opencraft.server.persistence.SavedGameManager;
-import org.opencraft.server.replay.ReplayThread;
 import org.opencraft.server.util.PlayerList;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.MessageDigest;
@@ -226,6 +228,35 @@ public final class World {
     }
   }
 
+  private static String getMappedName(String username) {
+    File file = new File("aliases.txt");
+
+    if (!file.exists()) {
+      return username;
+    }
+
+    try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+      String line;
+
+      while ((line = reader.readLine()) != null) {
+        line = line.trim();
+
+        if (line.isEmpty() || line.startsWith("#"))
+          continue;
+
+        String[] parts = line.split("\\s+", 2);
+
+        if (parts.length == 2 && parts[0].equalsIgnoreCase(username)) {
+          return parts[1];
+        }
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    return username;
+  }
+
   /**
    * Registers a session.
    *
@@ -262,6 +293,8 @@ public final class World {
     if (username.equals("ChurroS")) {
       username = "Matt";
     }
+
+    username = getMappedName(username);
 
     // Check if name is valid
     char[] nameChars = username.toCharArray();
